@@ -32,10 +32,6 @@ public class Client {
 
         int status = response.getStatus();
         if (status != 200) {
-            Scanner s = new Scanner(response.getRawBody());
-            while (s.hasNext()) {
-                System.out.print(s.next() + " ");
-            }
             throw new Error(String.format("Planet returned HTTP %s", status));
         }
 
