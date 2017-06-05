@@ -17,6 +17,7 @@ import java.util.Map;
 @Path("/")
 public class Application {
     private static final int CACHE_LONG = 86400;
+    private static final int CACHE_SHORT = 300;
     private static final long START_TIMESTAMP = Instant.now().toEpochMilli();
 
     private Client client;
@@ -29,6 +30,7 @@ public class Application {
     private void initializeUnirest() {
         Unirest.setObjectMapper(new ObjectMapper() {
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
             public <T> T readValue(String s, Class<T> cls) {
                 try {
                     return mapper.readValue(s, cls);
@@ -71,7 +73,7 @@ public class Application {
         }
 
         CacheControl cacheControl = new CacheControl();
-        cacheControl.setMaxAge(300);
+        cacheControl.setMaxAge(CACHE_SHORT);
 
         return Response
                 .ok(client.search(x, y, daysAgo))
