@@ -7,6 +7,7 @@ import landsatviewer.planet.Client;
 import landsatviewer.planet.Scene;
 
 import javax.ws.rs.*;
+import javax.ws.rs.core.CacheControl;
 import javax.ws.rs.core.Response;
 
 import java.io.IOException;
@@ -53,6 +54,25 @@ public class Application {
         HashMap<String, Double> status = new HashMap<>();
         status.put("uptime", (Instant.now().toEpochMilli() - startTimestamp) / 1000.0);
         return status;
+    }
+
+    @GET
+    @Path("/search")
+    @Produces("application/json")
+    public Response search(@QueryParam("x") Double x,
+                           @QueryParam("y") Double y,
+                           @QueryParam("days_ago") @DefaultValue("14") int daysAgo) throws Client.Error {
+        if (x == null || y == null) {
+            return Response.status(400).entity("Malformed point").build();
+        }
+
+        CacheControl cacheControl = new CacheControl();
+        cacheControl.setMaxAge(300);
+
+        return Response
+                .ok(client.search(x, y, daysAgo))
+                .cacheControl(cacheControl)
+                .build();
     }
 
     @GET

@@ -9,6 +9,8 @@ import java.io.InputStream;
 public class Client {
     private static final String TILE_URL = "https://tiles.planet.com/data/v1/Landsat8L1G/{sceneId}/{z}/{x}/{y}.png";
     private static final String SCENE_URL = "https://api.planet.com/data/v1/item-types/Landsat8L1G/items/{sceneId}";
+    public static final String SEARCH_URL = "https://api.planet.com/data/v1/quick-search";
+
     private final String apiKey;
 
     public Client(String apiKey) {
@@ -46,6 +48,28 @@ public class Client {
                     .routeParam("sceneId", sceneId)
                     .basicAuth(apiKey, "")
                     .asObject(Scene.class);
+        }
+        catch (UnirestException e) {
+            throw new Error(e);
+        }
+
+        int status = response.getStatus();
+        if (status != 200) {
+            throw new Error(String.format("Planet returned HTTP %s", status));
+        }
+
+        return response.getBody();
+    }
+
+    public SceneCollection search(double x, double y, int daysSince) throws Error {
+        HttpResponse<SceneCollection> response;
+
+        try {
+            response = Unirest.post(SEARCH_URL)
+                    .basicAuth(apiKey, "")
+                    .header("Content-Type", "application/json")
+                    .body(new SearchCriteria(x, y, daysSince))
+                    .asObject(SceneCollection.class);
         }
         catch (UnirestException e) {
             throw new Error(e);
