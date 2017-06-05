@@ -13,8 +13,10 @@ import java.util.List;
 import java.util.Map;
 
 public class SearchCriteria {
+
     @JsonProperty("item_types")
     public String[] itemTypes = {"Landsat8L1G"};
+
     public AndFilter filter = new AndFilter();
 
     public SearchCriteria(double x, double y, int daysSince) {

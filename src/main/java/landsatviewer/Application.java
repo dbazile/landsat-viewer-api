@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.mashape.unirest.http.ObjectMapper;
 import com.mashape.unirest.http.Unirest;
 import landsatviewer.planet.Client;
-import landsatviewer.planet.Scene;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.CacheControl;
@@ -17,8 +16,10 @@ import java.util.Map;
 
 @Path("/")
 public class Application {
+    private static final int CACHE_LONG = 86400;
+    private static final long START_TIMESTAMP = Instant.now().toEpochMilli();
+
     private Client client;
-    private static long startTimestamp = Instant.now().toEpochMilli();
 
     public Application() {
         client = new Client(System.getenv("PLANET_API_KEY"));
@@ -52,7 +53,7 @@ public class Application {
     @Produces("application/json")
     public Map<String, Double> healthCheck() {
         HashMap<String, Double> status = new HashMap<>();
-        status.put("uptime", (Instant.now().toEpochMilli() - startTimestamp) / 1000.0);
+        status.put("uptime", (Instant.now().toEpochMilli() - START_TIMESTAMP) / 1000.0);
         return status;
     }
 
@@ -63,7 +64,10 @@ public class Application {
                            @QueryParam("y") Double y,
                            @QueryParam("days_ago") @DefaultValue("14") int daysAgo) throws Client.Error {
         if (x == null || y == null) {
-            return Response.status(400).entity("Malformed point").build();
+            return Response
+                    .status(400)
+                    .entity("Malformed point")
+                    .build();
         }
 
         CacheControl cacheControl = new CacheControl();
@@ -78,8 +82,14 @@ public class Application {
     @GET
     @Path("/scene/{id}")
     @Produces("application/json")
-    public Scene getScene(@PathParam("id") String id) throws Client.Error {
-        return client.getScene(id);
+    public Response getScene(@PathParam("id") String id) throws Client.Error {
+        CacheControl cacheControl = new CacheControl();
+        cacheControl.setMaxAge(CACHE_LONG);
+
+        return Response
+                .ok(client.getScene(id))
+                .cacheControl(cacheControl)
+                .build();
     }
 
     @GET
@@ -89,6 +99,13 @@ public class Application {
                          @PathParam("x") int x,
                          @PathParam("y") int y,
                          @PathParam("z") int z) throws Client.Error {
-        return Response.ok(client.fetchTile(sceneId, x, y, z)).build();
+
+        CacheControl cacheControl = new CacheControl();
+        cacheControl.setMaxAge(CACHE_LONG);
+
+        return Response
+                .ok(client.fetchTile(sceneId, x, y, z))
+                .cacheControl(cacheControl)
+                .build();
     }
 }
