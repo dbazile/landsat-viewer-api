@@ -55,6 +55,9 @@ public class Client {
 
         int status = response.getStatus();
         if (status != 200) {
+            if (status == 404) {
+                throw new NotFound();
+            }
             throw new Error(String.format("Planet returned HTTP %s", status));
         }
 
@@ -81,6 +84,12 @@ public class Client {
         }
 
         return response.getBody();
+    }
+
+    public static class NotFound extends Error {
+        public NotFound() {
+            super("scene not found");
+        }
     }
 
     public static class Error extends Exception {
