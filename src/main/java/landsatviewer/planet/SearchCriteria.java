@@ -59,7 +59,7 @@ public class SearchCriteria {
             this.config = new ConfigGeometry(x, y);
         }
 
-        class ConfigGeometry {
+        static class ConfigGeometry {
             public String type = "Polygon";
             public List<List<List<Double>>> coordinates;
 
