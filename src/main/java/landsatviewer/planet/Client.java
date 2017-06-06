@@ -9,7 +9,7 @@ import java.io.InputStream;
 public class Client {
     private static final String TILE_URL = "https://tiles.planet.com/data/v1/Landsat8L1G/{sceneId}/{z}/{x}/{y}.png";
     private static final String SCENE_URL = "https://api.planet.com/data/v1/item-types/Landsat8L1G/items/{sceneId}";
-    public static final String SEARCH_URL = "https://api.planet.com/data/v1/quick-search";
+    private static final String SEARCH_URL = "https://api.planet.com/data/v1/quick-search";
 
     private final String apiKey;
 
