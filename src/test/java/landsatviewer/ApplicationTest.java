@@ -109,6 +109,15 @@ public class ApplicationTest {
         assertEquals(response.getStatus(), 404);
     }
 
+    @Test
+    public void getScene_gracefullyHandlesRetrievalFailure() throws Client.Error {
+        when(client.getScene("test-scene-id")).thenThrow(Client.Error.class);
+
+        Response response = createApplication().getScene("test-scene-id");
+
+        assertEquals(response.getStatus(), 500);
+    }
+
 
     @Test
     public void tile_requestsCorrectSceneId() throws Client.Error {
