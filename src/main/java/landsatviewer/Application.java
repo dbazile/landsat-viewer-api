@@ -4,17 +4,26 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.mashape.unirest.http.ObjectMapper;
 import com.mashape.unirest.http.Unirest;
 import landsatviewer.planet.Client;
-
-import javax.ws.rs.*;
-import javax.ws.rs.core.CacheControl;
-import javax.ws.rs.core.Response;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
-@Path("/")
+@Controller
+@EnableAutoConfiguration
 public class Application {
     private static final int CACHE_LONG = 86400;
     private static final int CACHE_SHORT = 300;
@@ -31,20 +40,18 @@ public class Application {
         this.client = client;
     }
 
-    @GET
-    @Produces("application/json")
+    @RequestMapping("/")
+    @ResponseBody
     public Map<String, Double> healthCheck() {
         HashMap<String, Double> status = new HashMap<>();
         status.put("uptime", (Instant.now().toEpochMilli() - START_TIMESTAMP) / 1000.0);
         return status;
     }
 
-    @GET
-    @Path("/scenes")
-    @Produces("application/json")
-    public Response search(@QueryParam("x") Double x,
-                           @QueryParam("y") Double y,
-                           @QueryParam("days_ago") @DefaultValue("14") int daysAgo) {
+    @RequestMapping(value = "/scenes")
+    public ResponseEntity search(@RequestParam(required = false) Double x,
+                                 @RequestParam(required = false) Double y,
+                                 @RequestParam(name = "days_ago", defaultValue = "14") int daysAgo) {
         if (x == null || y == null) {
             return createError(400, "Malformed input: missing 'x' and/or 'y' value");
         }
@@ -57,10 +64,8 @@ public class Application {
         }
     }
 
-    @GET
-    @Path("/scenes/{id}")
-    @Produces("application/json")
-    public Response getScene(@PathParam("id") String id) {
+    @RequestMapping("/scenes/{id}")
+    public ResponseEntity getScene(@PathVariable String id) {
         try {
             return createCached(client.getScene(id), CACHE_LONG);
         }
@@ -72,46 +77,37 @@ public class Application {
         }
     }
 
-    @GET
-    @Path("/tile/{id}/{z}/{x}/{y}.png")
-    @Produces("image/png")
-    public Response tile(@PathParam("id") String sceneId,
-                         @PathParam("x") int x,
-                         @PathParam("y") int y,
-                         @PathParam("z") int z) {
+    @RequestMapping("/tile/{sceneId}/{z}/{x}/{y}.png")
+    public ResponseEntity tile(@PathVariable String sceneId,
+                               @PathVariable int x,
+                               @PathVariable int y,
+                               @PathVariable int z) {
         try {
-            return createCached(client.fetchTile(sceneId, x, y, z), CACHE_LONG);
+            InputStream stream = client.fetchTile(sceneId, x, y, z);
+            return createCached(new InputStreamResource(stream), CACHE_LONG);
         }
         catch (Client.Error err) {
             return createError("Tile error: %s", err.getMessage());
         }
     }
 
-    private Response createCached(Object entity, int maxAge) {
-        CacheControl cacheControl = new CacheControl();
-        cacheControl.setMaxAge(maxAge);
-        return Response
-                .ok(entity)
-                .cacheControl(cacheControl)
-                .build();
+    private ResponseEntity createCached(Object entity, int maxAge) {
+        return ResponseEntity
+                .ok()
+                .cacheControl(CacheControl.maxAge(maxAge, TimeUnit.SECONDS))
+                .body(entity);
     }
 
-    private Response createError(String message, Object... args) {
-        Map<String, String> entity = new HashMap<>();
-        entity.put("error", String.format(message, args));
-        return Response
-                .serverError()
-                .entity(entity)
-                .build();
+    private ResponseEntity<Map<String, String>> createError(String message, Object... args) {
+        return createError(500, message, args);
     }
 
-    private Response createError(int status, String message, Object... args) {
+    private ResponseEntity<Map<String, String>> createError(int status, String message, Object... args) {
         Map<String, String> entity = new HashMap<>();
         entity.put("error", String.format(message, args));
-        return Response
+        return ResponseEntity
                 .status(status)
-                .entity(entity)
-                .build();
+                .body(entity);
     }
 
     private void initializeUnirest() {
@@ -136,5 +132,9 @@ public class Application {
                 }
             }
         });
+    }
+
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
     }
 }
