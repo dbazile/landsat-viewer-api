@@ -3,21 +3,28 @@ package landsatviewer;
 import landsatviewer.planet.Client;
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
+import javax.servlet.ServletContext;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 
-import static org.mockito.Mockito.*;
 import static junit.framework.TestCase.*;
+import static org.mockito.Mockito.*;
 
 public class ApplicationTest {
     private Client client;
+    private ServletContext servletContext;
 
     @Before
     public void setUp() {
         client = mock(Client.class);
+        servletContext = mock(ServletContext.class);
     }
 
 
@@ -66,16 +73,16 @@ public class ApplicationTest {
 
     @Test
     public void search_rejectsInvalidX() throws Client.Error {
-        ResponseEntity search = createApplication().search(null, 34.0, 56);
+        ResponseEntity response = createApplication().search(null, 34.0, 56);
 
-        assertEquals(search.getStatusCode(), HttpStatus.BAD_REQUEST);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
     public void search_rejectsInvalidY() throws Client.Error {
-        ResponseEntity search = createApplication().search(12.0, null, 56);
+        ResponseEntity response = createApplication().search(12.0, null, 56);
 
-        assertEquals(search.getStatusCode(), HttpStatus.BAD_REQUEST);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
@@ -91,7 +98,7 @@ public class ApplicationTest {
 
         ResponseEntity response = createApplication().search(12.0, 34.0, 56);
 
-        assertEquals(response.getStatusCode(), HttpStatus.INTERNAL_SERVER_ERROR);
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
     }
 
 
@@ -108,7 +115,7 @@ public class ApplicationTest {
 
         ResponseEntity response = createApplication().getScene("test-scene-id");
 
-        assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 
     @Test
@@ -117,61 +124,76 @@ public class ApplicationTest {
 
         ResponseEntity response = createApplication().getScene("test-scene-id");
 
-        assertEquals(response.getStatusCode(), HttpStatus.INTERNAL_SERVER_ERROR);
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
     }
 
 
     @Test
-    public void tile_requestsCorrectSceneId() throws Client.Error {
+    public void tiles_requestsCorrectSceneId() throws Client.Error {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        createApplication().tile("test-scene-id", 123, 456, 789);
+        createApplication().tiles("test-scene-id", 123, 456, 789);
 
         verify(client).fetchTile(eq("test-scene-id"), anyInt(), anyInt(), anyInt());
     }
 
     @Test
-    public void tile_requestsCorrectX() throws Client.Error {
+    public void tiles_requestsCorrectX() throws Client.Error {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        createApplication().tile("test-scene-id", 123, 456, 789);
+        createApplication().tiles("test-scene-id", 123, 456, 789);
 
         verify(client).fetchTile(anyString(), eq(123), anyInt(), anyInt());
     }
 
     @Test
-    public void tile_requestsCorrectY() throws Client.Error {
+    public void tiles_requestsCorrectY() throws Client.Error {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        createApplication().tile("test-scene-id", 123, 456, 789);
+        createApplication().tiles("test-scene-id", 123, 456, 789);
 
         verify(client).fetchTile(anyString(), anyInt(), eq(456), anyInt());
     }
 
     @Test
-    public void tile_requestsCorrectZ() throws Client.Error {
+    public void tiles_requestsCorrectZ() throws Client.Error {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        createApplication().tile("test-scene-id", 123, 456, 789);
+        createApplication().tiles("test-scene-id", 123, 456, 789);
 
         verify(client).fetchTile(anyString(), anyInt(), anyInt(), eq(789));
     }
 
     @Test
-    public void tile_gracefullyHandlesProxyError() throws Client.Error {
-        when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt())).thenThrow(Client.Error.class);
+    public void tiles_gracefullyHandlesProxyError() throws Client.Error {
+        when(servletContext.getResourceAsStream(anyString()))
+                .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
+        when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
+                .thenThrow(Client.Error.class);
 
-        ResponseEntity response = createApplication().tile("test-scene-id", 123, 456, 789);
+        ResponseEntity<InputStreamResource> response = createApplication().tiles("test-scene-id", 123, 456, 789);
 
-        assertEquals(response.getStatusCode(), HttpStatus.INTERNAL_SERVER_ERROR);
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
     }
 
+    @Test
+    public void tiles_rendersPlaceholderOnError() throws Client.Error, IOException {
+        InputStream expectedStream = new ByteArrayInputStream("test-data".getBytes());
+        when(servletContext.getResourceAsStream(anyString())).thenReturn(expectedStream);
+        when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt())).thenThrow(Client.Error.class);
+
+        ResponseEntity<InputStreamResource> response = createApplication().tiles("test-scene-id", 123, 456, 789);
+
+        assertSame(response.getBody().getInputStream(), expectedStream);
+        assertEquals(MediaType.IMAGE_PNG, response.getHeaders().getContentType());
+        verify(servletContext).getResourceAsStream(eq("/tile-error.png"));
+    }
 
     private Application createApplication() {
-        return new Application(client);
+        return new Application(client, servletContext);
     }
 }

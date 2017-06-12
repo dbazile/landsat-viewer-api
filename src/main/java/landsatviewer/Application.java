@@ -4,10 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.mashape.unirest.http.ObjectMapper;
 import com.mashape.unirest.http.Unirest;
 import landsatviewer.planet.Client;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import javax.servlet.ServletContext;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
@@ -29,15 +32,19 @@ public class Application {
     private static final int CACHE_SHORT = 300;
     private static final long START_TIMESTAMP = Instant.now().toEpochMilli();
 
+    @Autowired
+    private ServletContext context;
+
     private Client client;
 
     public Application() {
-        this(new Client(System.getenv("PLANET_API_KEY")));
+        this.client = new Client(System.getenv("PLANET_API_KEY"));
         initializeUnirest();
     }
 
-    public Application(Client client) {
+    public Application(Client client, ServletContext context) {
         this.client = client;
+        this.context = context;
     }
 
     @GetMapping("/")
@@ -78,17 +85,27 @@ public class Application {
     }
 
     @GetMapping("/tiles/{sceneId}/{z}/{x}/{y}.png")
-    public ResponseEntity tiles(@PathVariable String sceneId,
-                                @PathVariable int x,
-                                @PathVariable int y,
-                                @PathVariable int z) {
+    public ResponseEntity<InputStreamResource> tiles(
+            @PathVariable String sceneId,
+            @PathVariable int x,
+            @PathVariable int y,
+            @PathVariable int z) {
+        InputStream stream;
+        int status = 200;
+
         try {
-            InputStream stream = client.fetchTile(sceneId, x, y, z);
-            return createCached(new InputStreamResource(stream), CACHE_LONG);
+            stream = client.fetchTile(sceneId, x, y, z);
         }
         catch (Client.Error err) {
-            return createError("Tile error: %s", err.getMessage());
+            err.printStackTrace();  // ¯\_(ツ)_/¯
+            status = 500;
+            stream = context.getResourceAsStream("/tile-error.png");
         }
+        return ResponseEntity
+                .status(status)
+                .contentType(MediaType.IMAGE_PNG)
+                .cacheControl(CacheControl.maxAge(CACHE_LONG, TimeUnit.SECONDS))
+                .body(new InputStreamResource(stream));
     }
 
     private ResponseEntity createCached(Object entity, int maxAge) {
