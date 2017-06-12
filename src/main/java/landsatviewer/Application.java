@@ -10,8 +10,8 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
@@ -40,7 +40,7 @@ public class Application {
         this.client = client;
     }
 
-    @RequestMapping("/")
+    @GetMapping("/")
     @ResponseBody
     public Map<String, Double> healthCheck() {
         HashMap<String, Double> status = new HashMap<>();
@@ -48,7 +48,7 @@ public class Application {
         return status;
     }
 
-    @RequestMapping(value = "/scenes")
+    @GetMapping("/scenes")
     public ResponseEntity search(@RequestParam(required = false) Double x,
                                  @RequestParam(required = false) Double y,
                                  @RequestParam(name = "days_ago", defaultValue = "14") int daysAgo) {
@@ -64,7 +64,7 @@ public class Application {
         }
     }
 
-    @RequestMapping("/scenes/{id}")
+    @GetMapping("/scenes/{id}")
     public ResponseEntity getScene(@PathVariable String id) {
         try {
             return createCached(client.getScene(id), CACHE_LONG);
@@ -77,11 +77,11 @@ public class Application {
         }
     }
 
-    @RequestMapping("/tile/{sceneId}/{z}/{x}/{y}.png")
-    public ResponseEntity tile(@PathVariable String sceneId,
-                               @PathVariable int x,
-                               @PathVariable int y,
-                               @PathVariable int z) {
+    @GetMapping("/tiles/{sceneId}/{z}/{x}/{y}.png")
+    public ResponseEntity tiles(@PathVariable String sceneId,
+                                @PathVariable int x,
+                                @PathVariable int y,
+                                @PathVariable int z) {
         try {
             InputStream stream = client.fetchTile(sceneId, x, y, z);
             return createCached(new InputStreamResource(stream), CACHE_LONG);
