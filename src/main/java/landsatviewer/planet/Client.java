@@ -1,9 +1,14 @@
 package landsatviewer.planet;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.mashape.unirest.http.HttpResponse;
+import com.mashape.unirest.http.ObjectMapper;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
+import com.mashape.unirest.http.options.Option;
+import com.mashape.unirest.http.options.Options;
 
+import java.io.IOException;
 import java.io.InputStream;
 
 public class Client {
@@ -12,6 +17,10 @@ public class Client {
     private static final String SEARCH_URL = "https://api.planet.com/data/v1/quick-search";
 
     private final String apiKey;
+
+    static {
+        initializeUnirest();
+    }
 
     public Client(String apiKey) {
         this.apiKey = apiKey;
@@ -100,5 +109,30 @@ public class Client {
         public Error(Throwable e) {
             super(e);
         }
+    }
+
+    private static void initializeUnirest() {
+        // HACK -- invoking 'setOption' directly avoids clobbering custom clients
+        Options.setOption(Option.OBJECT_MAPPER, new ObjectMapper() {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+            public <T> T readValue(String s, Class<T> cls) {
+                try {
+                    return mapper.readValue(s, cls);
+                }
+                catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            public String writeValue(Object o) {
+                try {
+                    return mapper.writeValueAsString(o);
+                }
+                catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
     }
 }

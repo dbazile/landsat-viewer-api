@@ -39,7 +39,6 @@ public class Application {
 
     public Application() {
         this.client = new Client(System.getenv("PLANET_API_KEY"));
-        initializeUnirest();
     }
 
     public Application(Client client, ServletContext context) {
@@ -125,30 +124,6 @@ public class Application {
         return ResponseEntity
                 .status(status)
                 .body(entity);
-    }
-
-    private void initializeUnirest() {
-        Unirest.setObjectMapper(new ObjectMapper() {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-
-            public <T> T readValue(String s, Class<T> cls) {
-                try {
-                    return mapper.readValue(s, cls);
-                }
-                catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-
-            public String writeValue(Object o) {
-                try {
-                    return mapper.writeValueAsString(o);
-                }
-                catch (JsonProcessingException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
     }
 
     public static void main(String[] args) {
