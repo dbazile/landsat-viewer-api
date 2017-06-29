@@ -17,7 +17,7 @@ import java.util.Map;
 import static junit.framework.TestCase.*;
 import static org.mockito.Mockito.*;
 
-public class ApplicationTest {
+public class PlanetControllerTest {
     private Client client;
     private ServletContext servletContext;
 
@@ -30,7 +30,7 @@ public class ApplicationTest {
 
     @Test
     public void healthCheck_responseIncludesUptime() {
-        Map<String, Double> response = createApplication().healthCheck();
+        Map<String, Double> response = createController().healthCheck();
 
         assertTrue(response.containsKey("uptime"));
         assertNotNull(response.get("uptime"));
@@ -41,7 +41,7 @@ public class ApplicationTest {
     public void search_requestsCorrectX() throws Client.Error {
         double n = Math.random();
 
-        createApplication().search(n, 34.0, 56);
+        createController().search(n, 34.0, 56);
 
         verify(client).search(eq(n), anyDouble(), anyInt());
     }
@@ -50,7 +50,7 @@ public class ApplicationTest {
     public void search_requestsCorrectY() throws Client.Error {
         double n = Math.random();
 
-        createApplication().search(12.0, n, 56);
+        createController().search(12.0, n, 56);
 
         verify(client).search(anyDouble(), eq(n), anyInt());
     }
@@ -59,35 +59,35 @@ public class ApplicationTest {
     public void search_requestsCorrectNumberOfDays() throws Client.Error {
         int n = (int)(Math.random() * 1000);
 
-        createApplication().search(12.0, 34.0, n);
+        createController().search(12.0, 34.0, n);
 
         verify(client).search(anyDouble(), anyDouble(), eq(n));
     }
 
     @Test
     public void search_doesntRequestInvalidX() throws Client.Error {
-        createApplication().search(null, 34.0, 56);
+        createController().search(null, 34.0, 56);
 
         verify(client, never()).search(anyDouble(), anyDouble(), anyInt());
     }
 
     @Test
     public void search_rejectsInvalidX() throws Client.Error {
-        ResponseEntity response = createApplication().search(null, 34.0, 56);
+        ResponseEntity response = createController().search(null, 34.0, 56);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
     public void search_rejectsInvalidY() throws Client.Error {
-        ResponseEntity response = createApplication().search(12.0, null, 56);
+        ResponseEntity response = createController().search(12.0, null, 56);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
     public void search_doesntRequestInvalidY() throws Client.Error {
-        createApplication().search(12.0, null, 56);
+        createController().search(12.0, null, 56);
 
         verify(client, never()).search(anyDouble(), anyDouble(), anyInt());
     }
@@ -96,7 +96,7 @@ public class ApplicationTest {
     public void search_gracefullyHandlesSearchFailure() throws Client.Error {
         when(client.search(anyDouble(), anyDouble(), anyInt())).thenThrow(Client.Error.class);
 
-        ResponseEntity response = createApplication().search(12.0, 34.0, 56);
+        ResponseEntity response = createController().search(12.0, 34.0, 56);
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
     }
@@ -104,7 +104,7 @@ public class ApplicationTest {
 
     @Test
     public void getScene_requestsCorrectSceneId() throws Client.Error {
-        createApplication().getScene("test-scene-id");
+        createController().getScene("test-scene-id");
 
         verify(client).getScene("test-scene-id");
     }
@@ -113,7 +113,7 @@ public class ApplicationTest {
     public void getScene_gracefullyHandlesSceneNotFound() throws Client.Error {
         when(client.getScene("test-scene-id")).thenThrow(Client.NotFound.class);
 
-        ResponseEntity response = createApplication().getScene("test-scene-id");
+        ResponseEntity response = createController().getScene("test-scene-id");
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
@@ -122,7 +122,7 @@ public class ApplicationTest {
     public void getScene_gracefullyHandlesRetrievalFailure() throws Client.Error {
         when(client.getScene("test-scene-id")).thenThrow(Client.Error.class);
 
-        ResponseEntity response = createApplication().getScene("test-scene-id");
+        ResponseEntity response = createController().getScene("test-scene-id");
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
     }
@@ -133,7 +133,7 @@ public class ApplicationTest {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        createApplication().tiles("test-scene-id", 123, 456, 789);
+        createController().tiles("test-scene-id", 123, 456, 789);
 
         verify(client).fetchTile(eq("test-scene-id"), anyInt(), anyInt(), anyInt());
     }
@@ -143,7 +143,7 @@ public class ApplicationTest {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        createApplication().tiles("test-scene-id", 123, 456, 789);
+        createController().tiles("test-scene-id", 123, 456, 789);
 
         verify(client).fetchTile(anyString(), eq(123), anyInt(), anyInt());
     }
@@ -153,7 +153,7 @@ public class ApplicationTest {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        createApplication().tiles("test-scene-id", 123, 456, 789);
+        createController().tiles("test-scene-id", 123, 456, 789);
 
         verify(client).fetchTile(anyString(), anyInt(), eq(456), anyInt());
     }
@@ -163,7 +163,7 @@ public class ApplicationTest {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        createApplication().tiles("test-scene-id", 123, 456, 789);
+        createController().tiles("test-scene-id", 123, 456, 789);
 
         verify(client).fetchTile(anyString(), anyInt(), anyInt(), eq(789));
     }
@@ -175,7 +175,7 @@ public class ApplicationTest {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenThrow(Client.Error.class);
 
-        ResponseEntity<InputStreamResource> response = createApplication().tiles("test-scene-id", 123, 456, 789);
+        ResponseEntity<InputStreamResource> response = createController().tiles("test-scene-id", 123, 456, 789);
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
     }
@@ -186,14 +186,14 @@ public class ApplicationTest {
         when(servletContext.getResourceAsStream(anyString())).thenReturn(expectedStream);
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt())).thenThrow(Client.Error.class);
 
-        ResponseEntity<InputStreamResource> response = createApplication().tiles("test-scene-id", 123, 456, 789);
+        ResponseEntity<InputStreamResource> response = createController().tiles("test-scene-id", 123, 456, 789);
 
         assertSame(response.getBody().getInputStream(), expectedStream);
         assertEquals(MediaType.IMAGE_PNG, response.getHeaders().getContentType());
         verify(servletContext).getResourceAsStream(eq("/tile-error.png"));
     }
 
-    private Application createApplication() {
-        return new Application(client, servletContext);
+    private PlanetController createController() {
+        return new PlanetController(client, servletContext);
     }
 }
