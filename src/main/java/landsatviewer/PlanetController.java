@@ -25,11 +25,9 @@ class PlanetController {
     private static final int CACHE_SHORT = 300;
     private static final long START_TIMESTAMP = Instant.now().toEpochMilli();
 
-    @Autowired
-    private ServletContext context;
+    private final ServletContext context;
 
-    @Autowired
-    private Client client;
+    private final Client client;
 
     PlanetController(Client client, ServletContext context) {
         this.client = client;
