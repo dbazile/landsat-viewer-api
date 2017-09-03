@@ -1,1 +1,1 @@
-web: java -jar target/landsat-viewer-api-*.jar
+web: java -Dserver.port=$PORT -jar target/landsat-viewer-api-*.jar
