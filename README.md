@@ -7,5 +7,5 @@
 
 
 ```
-mvn spring-boot:run
+pipenv install
 ```

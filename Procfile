@@ -1,1 +1,1 @@
-web: java -Dserver.port=$PORT -jar target/landsat-viewer-api-*.jar
+web: gunicorn landsatviewer.wsgi -b 0.0.0.0:$PORT
