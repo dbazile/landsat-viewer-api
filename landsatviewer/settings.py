@@ -43,3 +43,30 @@ USE_I18N = True
 USE_L10N = True
 
 USE_TZ = True
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '%(levelname)-5s - %(name)s:%(funcName)s - %(message)s',
+        },
+    },
+    'handlers': {
+        'stderr': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+            'stream': 'ext://sys.stderr',
+        },
+    },
+    'loggers': {
+        'landsatviewer': {
+            'handlers': ['stderr'],
+            'level': 'DEBUG',
+        },
+    },
+}
+
+
+PLANET_API_KEY = os.getenv('PLANET_API_KEY')
