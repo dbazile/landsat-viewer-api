@@ -17,7 +17,15 @@ _transport.auth = (settings.PLANET_API_KEY, '')
 
 def get_tile(scene_id: str, x: int, y: int, z: int):
     _log.debug('Requesting tile for scene `%s` (x=%s, y=%s, z=%s)', scene_id, x, y, z)
-    raise Error('oh no')
+
+    response = _transport.get(TILE_URL.format(scene_id=scene_id, x=x, y=y, z=z))
+
+    if response.status_code == 404:
+        raise NotFound()
+    elif response.status_code != 200:
+        raise Error('Planet returned HTTP {}'.format(response.status_code))
+
+    return response.iter_content(4096)
 
 
 def get_scene(scene_id: str):

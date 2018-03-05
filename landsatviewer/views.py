@@ -3,7 +3,7 @@ import time
 from typing import Union
 
 from django.conf import settings
-from django.http import FileResponse, HttpRequest, HttpResponse, JsonResponse, HttpResponseRedirect
+from django.http import FileResponse, HttpRequest, HttpResponse, JsonResponse, HttpResponseRedirect, StreamingHttpResponse
 from django.views.decorators.cache import cache_page
 
 from . import planet
@@ -40,6 +40,19 @@ def get_scene(_: HttpRequest, scene_id: str) -> HttpResponse:
         return _create_error(404, 'scene not found', scene_id=scene_id)
     except planet.Error as err:
         return _create_error(500, 'scene fetch error: {}'.format(err), scene_id=scene_id)
+
+
+@cache_page(CACHE_LONG)
+def get_tile(_: HttpRequest, scene_id: str, x: int, y: int, z: int) -> StreamingHttpResponse:
+    try:
+        stream = planet.get_tile(scene_id, x, y, z)
+    except planet.Error:
+        stream = open('{}/landsatviewer/images/tile-error.png'.format(settings.BASE_DIR), 'rb')
+
+    response = StreamingHttpResponse(stream)
+    response['Content-Type'] = 'image/png'
+
+    return response
 
 
 #
