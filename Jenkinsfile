@@ -12,6 +12,7 @@ pipeline {
             steps {
                 deployApplication('landsat-viewer-api', [
                     'PLANET_API_KEY': env.PLANET_API_KEY,
+                    'DISABLE_COLLECTSTATIC': 1,
                 ])
             }
         }
