@@ -10,7 +10,7 @@ node {
     }
 
     stage('Deploy') {
-        withCredentials([string('PLANET_API_KEY')]) {
+        withCredentials([string(credentialsId: 'PLANET_API_KEY', variable: 'PLANET_API_KEY')]) {
             deployApplication('landsat-viewer-api', [
                     'PLANET_API_KEY': PLANET_API_KEY,
             ])
