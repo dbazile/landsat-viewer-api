@@ -1,11 +1,19 @@
 # landsat-viewer-api
 
-> A Basic Web Application called `landsat-viewer-api`
+![Build Status](https://dev.bazile.org/ci/status/landsat-viewer-api.svg)
 
-[![Build Status](https://travis-ci.org/dbazile/landsat-viewer-api.svg?branch=master)](https://travis-ci.org/dbazile/landsat-viewer-api)
+> Backend services for querying and viewing recent [LANDSAT 8](https://landsat.usgs.gov) scenes.
 
 
+## Running locally for development
 
-```
+```bash
 mvn spring-boot:run
+```
+
+
+## Testing
+
+```bash
+mvn test
 ```
