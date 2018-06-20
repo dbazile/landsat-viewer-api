@@ -1,35 +1,19 @@
 library 'deployment'
 
-pipeline {
-    agent any
+node {
+    checkout scm
 
-    tools {
-        maven 'maven'
-    }
-
-    environment {
-        PLANET_API_KEY = credentials('PLANET_API_KEY')
-    }
-
-    stages {
-        stage('Checkout') {
-            steps {
-                git 'git://github.com/dbazile/landsat-viewer-api'
-            }
-        }
-
+    withDockerContainer(image: 'maven:3-jdk-10') {
         stage('Test') {
-            steps {
-                sh 'mvn clean test'
-            }
+            sh 'mvn -B test'
         }
+    }
 
-        stage('Deploy') {
-            steps {
-                deployApplication('landsat-viewer-api', [
-                    'PLANET_API_KEY': env.PLANET_API_KEY,
-                ])
-            }
+    stage('Deploy') {
+        withCredentials([string('PLANET_API_KEY')]) {
+            deployApplication('landsat-viewer-api', [
+                    'PLANET_API_KEY': PLANET_API_KEY,
+            ])
         }
     }
 }
