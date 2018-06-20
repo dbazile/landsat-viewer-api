@@ -1,5 +1,8 @@
 package landsatviewer.planet;
 
+import java.io.InputStream;
+import java.util.Scanner;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.http.HttpMethod;
@@ -7,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.spy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
@@ -23,15 +27,26 @@ public class ClientTest {
     }
 
     @Test
-    public void fetchTile_requestsCorrectURL() throws Exception {
+    public void fetchTile_callsCorrectURL() throws Exception {
         server
                 .expect(requestTo("https://tiles.planet.com/data/v1/Landsat8L1G/test-scene-id/56/12/34.png"))
                 .andExpect(method(HttpMethod.GET))
-                .andRespond(withSuccess(new byte[]{}, MediaType.IMAGE_PNG));
+                .andRespond(withSuccess("test-data".getBytes(), MediaType.IMAGE_PNG));
 
         createClient().fetchTile("test-scene-id", 12, 34, 56);
 
         server.verify();
+    }
+
+    @Test
+    public void fetchTile_returnsValidStream() throws Exception {
+        server
+                .expect(anything())
+                .andRespond(withSuccess("test-data".getBytes(), MediaType.IMAGE_PNG));
+
+        final InputStream inputStream = createClient().fetchTile("test-scene-id", 12, 34, 56);
+
+        assertEquals("test-data", new Scanner(inputStream).next());
     }
 
     @Test(expected = Client.Error.class)
@@ -46,7 +61,7 @@ public class ClientTest {
     }
 
     @Test
-    public void getScene_requestsCorrectURL() throws Exception {
+    public void getScene_callsCorrectURL() throws Exception {
         server
                 .expect(requestTo("https://api.planet.com/data/v1/item-types/Landsat8L1G/items/test-scene-id"))
                 .andExpect(method(HttpMethod.GET))
@@ -69,7 +84,7 @@ public class ClientTest {
     }
 
     @Test
-    public void search_requestsCorrectURL() throws Exception {
+    public void search_callsCorrectURL() throws Exception {
         server
                 .expect(requestTo("https://api.planet.com/data/v1/quick-search"))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));

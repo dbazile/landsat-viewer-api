@@ -1,5 +1,6 @@
 package landsatviewer.planet;
 
+import java.io.IOException;
 import java.io.InputStream;
 
 import org.slf4j.Logger;
@@ -7,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -39,9 +41,9 @@ public class Client {
     public InputStream fetchTile(String sceneId, int x, int y, int z) throws Error {
         logger.debug("Request tile (sceneId={}, x={}, y={}, z={})", sceneId, x, y, z);
 
-        final ResponseEntity<InputStream> response;
+        final ResponseEntity<ByteArrayResource> response;
         try {
-            response = restTemplate.getForEntity(TILE_URL, InputStream.class, sceneId, z, x, y);
+            response = restTemplate.getForEntity(TILE_URL, ByteArrayResource.class, sceneId, z, x, y);
         }
         catch (RestClientException e) {
             logger.error("Could not communicate with Planet API: {}", e.getMessage(), e);
@@ -54,7 +56,16 @@ public class Client {
             throw new Error("Planet returned HTTP %s", status);
         }
 
-        return response.getBody();
+        final InputStream stream;
+        try {
+            stream = response.getBody().getInputStream();
+        }
+        catch (IOException e) {
+            logger.error("Tile request failed: {} (sceneId={}, x={}, y={}, z={})", e.getMessage(), sceneId, x, y, z, e);
+            throw new Error("could not get stream from response");
+        }
+
+        return stream;
     }
 
     public Scene getScene(String sceneId) throws Error {
