@@ -1,4 +1,4 @@
 <configuration>
     <include resource="org/springframework/boot/logging/logback/base.xml"/>
-    <root level="OFF"/>
+    <root level="${LOG_LEVEL:-OFF}"/>
 </configuration>
