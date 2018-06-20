@@ -1,134 +1,118 @@
 package landsatviewer.planet;
 
-import com.mashape.unirest.http.Unirest;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpVersion;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpRequestBase;
-import org.apache.http.impl.DefaultHttpResponseFactory;
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestTemplate;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
-import java.util.Scanner;
-
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.spy;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 public class ClientTest {
-
-    private HttpClient transport;
-    private HttpRequestBase request;
-    private HttpResponse response;
+    private MockRestServiceServer server;
+    private RestTemplate restTemplate;
 
     @Before
-    public void setUp() throws IOException {
-        transport = mock(HttpClient.class);
-        response = new DefaultHttpResponseFactory().newHttpResponse(HttpVersion.HTTP_1_1, 200, null);
-
-        when(transport.execute(any())).then(m -> {
-            request = m.getArgument(0);
-            return response;
-        });
-
-        Unirest.setHttpClient(transport);
-    }
-
-    @Test
-    public void fetchTile_sendsCorrectAuthorization() throws Exception {
-        Client client = new Client("test-api-key");
-
-        client.fetchTile("test-scene-id", 12, 34, 56);
-
-        assertEquals("Basic dGVzdC1hcGkta2V5Og==", request.getFirstHeader("Authorization").getValue());
+    public void setUp() {
+        restTemplate = spy(RestTemplate.class);
+        server = MockRestServiceServer.createServer(restTemplate);
     }
 
     @Test
     public void fetchTile_requestsCorrectURL() throws Exception {
-        Client client = new Client("test-api-key");
+        server
+                .expect(requestTo("https://tiles.planet.com/data/v1/Landsat8L1G/test-scene-id/56/12/34.png"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(new byte[]{}, MediaType.IMAGE_PNG));
 
-        client.fetchTile("test-scene-id", 12, 34, 56);
+        createClient().fetchTile("test-scene-id", 12, 34, 56);
 
-        assertEquals(new URI("https://tiles.planet.com/data/v1/Landsat8L1G/test-scene-id/56/12/34.png"), request.getURI());
+        server.verify();
     }
 
     @Test(expected = Client.Error.class)
     public void fetchTile_gracefullyHandlesPlanetAPIError() throws Exception {
-        response.setStatusCode(500);
-        Client client = new Client("test-api-key");
+        server
+                .expect(requestTo("https://tiles.planet.com/data/v1/Landsat8L1G/test-scene-id/56/12/34.png"))
+                .andRespond(withServerError());
 
-        client.fetchTile("test-scene-id", 12, 34, 56);
-    }
+        createClient().fetchTile("test-scene-id", 12, 34, 56);
 
-    @Test
-    public void fetchTile_returnsBodyAsStream() throws Exception {
-        HttpEntity entity = mock(HttpEntity.class);
-        response.setEntity(entity);
-        when(entity.getContent()).thenReturn(new ByteArrayInputStream("test-data".getBytes()));
-        Client client = new Client("test-api-key");
-
-        InputStream stream = client.fetchTile("test-scene-id", 12, 34, 56);
-
-        assertEquals("test-data", new Scanner(stream).next());
-    }
-
-
-    @Test
-    public void getScene_sendsCorrectAuthorization() throws Exception {
-        Client client = new Client("test-api-key");
-
-        client.getScene("test-scene-id");
-
-        assertEquals("Basic dGVzdC1hcGkta2V5Og==", request.getFirstHeader("Authorization").getValue());
+        server.verify();
     }
 
     @Test
     public void getScene_requestsCorrectURL() throws Exception {
-        Client client = new Client("test-api-key");
+        server
+                .expect(requestTo("https://api.planet.com/data/v1/item-types/Landsat8L1G/items/test-scene-id"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
-        client.getScene("test-scene-id");
+        createClient().getScene("test-scene-id");
 
-        assertEquals(new URI("https://api.planet.com/data/v1/item-types/Landsat8L1G/items/test-scene-id"), request.getURI());
+        server.verify();
     }
 
     @Test(expected = Client.Error.class)
     public void getScene_gracefullyHandlesPlanetAPIError() throws Exception {
-        Client client = new Client("test-api-key");
+        server
+                .expect(anything())
+                .andRespond(withServerError());
 
-        response.setStatusCode(500);
+        createClient().getScene("test-scene-id");
 
-        client.getScene("test-scene-id");
-    }
-
-
-    @Test
-    public void search_sendsCorrectAuthorization() throws Exception {
-        Client client = new Client("test-api-key");
-
-        client.search(12.34, 45.56, 789);
-
-        assertEquals("Basic dGVzdC1hcGkta2V5Og==", request.getFirstHeader("Authorization").getValue());
+        server.verify();
     }
 
     @Test
     public void search_requestsCorrectURL() throws Exception {
-        Client client = new Client("test-api-key");
+        server
+                .expect(requestTo("https://api.planet.com/data/v1/quick-search"))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
-        client.search(12.34, 45.56, 789);
+        createClient().search(12.34, 45.56, 789);
 
-        assertEquals(new URI("https://api.planet.com/data/v1/quick-search"), request.getURI());
+        server.verify();
+    }
+
+    @Test
+    public void search_sendsCorrectHeaders() throws Exception {
+        server
+                .expect(header("Content-Type", "application/json"))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        createClient().search(12.34, 45.56, 789);
+
+        server.verify();
+    }
+
+    @Test
+    public void search_sendsCorrectCriteria() throws Exception {
+        server
+                .expect(jsonPath("item_types").value("Landsat8L1G"))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        createClient().search(12.34, 45.56, 789);
+
+        server.verify();
     }
 
     @Test(expected = Client.Error.class)
     public void search_gracefullyHandlesPlanetAPIError() throws Exception {
-        Client client = new Client("test-api-key");
+        server
+                .expect(anything())
+                .andRespond(withServerError());
 
-        response.setStatusCode(500);
+        createClient().search(12.34, 45.56, 789);
 
-        client.search(12.34, 45.56, 789);
+        server.verify();
+    }
+
+    private Client createClient() {
+        return new Client(restTemplate);
     }
 }

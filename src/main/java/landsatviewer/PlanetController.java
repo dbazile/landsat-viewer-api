@@ -1,45 +1,46 @@
 package landsatviewer;
 
-import landsatviewer.planet.Client;
+import javax.servlet.ServletContext;
+import java.io.InputStream;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
 
-import javax.servlet.ServletContext;
-import java.io.InputStream;
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import landsatviewer.planet.Client;
 
-@Controller
+@RestController
 class PlanetController {
+    private static final Logger logger = LoggerFactory.getLogger(PlanetController.class);
+
     private static final int CACHE_LONG = 86400;
     private static final int CACHE_SHORT = 300;
-    private static final long START_TIMESTAMP = Instant.now().toEpochMilli();
-
-    private final ServletContext context;
+    private static final Instant START_TIMESTAMP = Instant.now();
 
     private final Client client;
+    private final ServletContext context;
 
+    @Autowired
     PlanetController(Client client, ServletContext context) {
         this.client = client;
         this.context = context;
     }
 
     @GetMapping("/")
-    @ResponseBody
     Map<String, Double> healthCheck() {
-        HashMap<String, Double> status = new HashMap<>();
-        status.put("uptime", (Instant.now().toEpochMilli() - START_TIMESTAMP) / 1000.0);
-        return status;
+        return Map.of("uptime", Duration.between(START_TIMESTAMP, Instant.now()).toMillis() / 1000D);
     }
 
     @GetMapping("/scenes")
@@ -83,7 +84,7 @@ class PlanetController {
             stream = client.fetchTile(sceneId, x, y, z);
         }
         catch (Client.Error err) {
-            err.printStackTrace();  // ¯\_(ツ)_/¯
+            logger.error("Could not proxy tile request (scene={}, x={}, y={}, z={})", sceneId, x, y, z);
             status = 500;
             stream = context.getResourceAsStream("/tile-error.png");
         }
@@ -106,10 +107,8 @@ class PlanetController {
     }
 
     private ResponseEntity<Map<String, String>> createError(int status, String message, Object... args) {
-        Map<String, String> entity = new HashMap<>();
-        entity.put("error", String.format(message, args));
         return ResponseEntity
                 .status(status)
-                .body(entity);
+                .body(Map.of("error", String.format(message, args)));
     }
 }
