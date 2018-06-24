@@ -117,7 +117,7 @@ public class Client {
     }
 
     public static class Error extends Exception {
-        Error(String message) {
+        public Error(String message) {
             super(message);
         }
 

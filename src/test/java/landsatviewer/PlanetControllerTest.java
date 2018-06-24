@@ -1,199 +1,206 @@
 package landsatviewer;
 
-import landsatviewer.planet.Client;
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.core.io.InputStreamResource;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-
-import javax.servlet.ServletContext;
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Map;
+import javax.servlet.ServletContext;
 
-import static junit.framework.TestCase.*;
-import static org.mockito.Mockito.*;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.any;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.mockito.Mockito.anyDouble;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import landsatviewer.planet.Client;
+
+@RunWith(SpringJUnit4ClassRunner.class)
+@WebMvcTest(PlanetController.class)
 public class PlanetControllerTest {
+    @MockBean
     private Client client;
+
+    @MockBean
     private ServletContext servletContext;
 
-    @Before
-    public void setUp() {
-        client = mock(Client.class);
-        servletContext = mock(ServletContext.class);
+    @Autowired
+    private MockMvc mvc;
+
+    @Test
+    public void healthCheck__ResponseIncludesUptime() throws Exception {
+        mvc.perform(get("/"))
+                .andExpect(jsonPath("uptime", greaterThan(0.0)));
     }
 
 
     @Test
-    public void healthCheck_responseIncludesUptime() {
-        Map<String, Double> response = createController().healthCheck();
+    public void search__RequestsCorrectCoordinates() throws Exception {
+        double expectedX = Math.random() * 180;
+        double expectedY = Math.random() * 90;
 
-        assertTrue(response.containsKey("uptime"));
-        assertNotNull(response.get("uptime"));
-    }
+        mvc.perform(get("/scenes?x={x}&y={y}&days_ago=56", expectedX, expectedY));
 
-
-    @Test
-    public void search_requestsCorrectX() throws Client.Error {
-        double n = Math.random();
-
-        createController().search(n, 34.0, 56);
-
-        verify(client).search(eq(n), anyDouble(), anyInt());
+        verify(client).search(eq(expectedX), eq(expectedY), anyInt());
     }
 
     @Test
-    public void search_requestsCorrectY() throws Client.Error {
-        double n = Math.random();
+    public void search__RequestsCorrectNumberOfDays() throws Exception {
+        int expectedDays = (int) (Math.random() * 1000);
 
-        createController().search(12.0, n, 56);
+        mvc.perform(get("/scenes?x=12&y=34&days_ago={days_ago}", expectedDays));
 
-        verify(client).search(anyDouble(), eq(n), anyInt());
+        verify(client).search(anyDouble(), anyDouble(), eq(expectedDays));
     }
 
     @Test
-    public void search_requestsCorrectNumberOfDays() throws Client.Error {
-        int n = (int)(Math.random() * 1000);
+    public void search__RequestsCorrectFallbackForNumberOfDays() throws Exception {
+        mvc.perform(get("/scenes?x=12&y=34"));
 
-        createController().search(12.0, 34.0, n);
-
-        verify(client).search(anyDouble(), anyDouble(), eq(n));
+        verify(client).search(anyDouble(), anyDouble(), anyInt());
     }
 
     @Test
-    public void search_doesntRequestInvalidX() throws Client.Error {
-        createController().search(null, 34.0, 56);
+    public void search__RejectsInvalidX() throws Exception {
+        mvc.perform(get("/scenes?x=&y=34&days_ago=56"))
+                .andExpect(status().is(400))
+                .andExpect(jsonPath("error", any(String.class)));
+    }
+
+    @Test
+    public void search__DoesntRequestInvalidX() throws Exception {
+        mvc.perform(get("/scenes?x=&y=34&days_ago=56"));
 
         verify(client, never()).search(anyDouble(), anyDouble(), anyInt());
     }
 
     @Test
-    public void search_rejectsInvalidX() throws Client.Error {
-        ResponseEntity response = createController().search(null, 34.0, 56);
-
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    public void search__RejectsInvalidY() throws Exception {
+        mvc.perform(get("/scenes?x=12&y=&days_ago=56"))
+                .andExpect(status().is(400))
+                .andExpect(jsonPath("error", any(String.class)));
     }
 
     @Test
-    public void search_rejectsInvalidY() throws Client.Error {
-        ResponseEntity response = createController().search(12.0, null, 56);
-
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-    }
-
-    @Test
-    public void search_doesntRequestInvalidY() throws Client.Error {
-        createController().search(12.0, null, 56);
+    public void search__DoesntRequestInvalidY() throws Exception {
+        mvc.perform(get("/scenes?x=12&y=&days_ago=56"));
 
         verify(client, never()).search(anyDouble(), anyDouble(), anyInt());
     }
 
     @Test
-    public void search_gracefullyHandlesSearchFailure() throws Client.Error {
-        when(client.search(anyDouble(), anyDouble(), anyInt())).thenThrow(Client.Error.class);
+    public void search__GracefullyHandlesSearchFailure() throws Exception {
+        when(client.search(anyDouble(), anyDouble(), anyInt()))
+                .thenThrow(new Client.Error("test-error"));
 
-        ResponseEntity response = createController().search(12.0, 34.0, 56);
-
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        mvc.perform(get("/scenes?x=12&y=34&days_ago=56"))
+                .andExpect(status().is(500))
+                .andExpect(jsonPath("error", equalTo("Search error: test-error")));
     }
 
 
     @Test
-    public void getScene_requestsCorrectSceneId() throws Client.Error {
-        createController().getScene("test-scene-id");
+    public void getScene__RequestsCorrectSceneId() throws Exception {
+        mvc.perform(get("/scenes/test-scene-id"));
 
         verify(client).getScene("test-scene-id");
     }
 
     @Test
-    public void getScene_gracefullyHandlesSceneNotFound() throws Client.Error {
-        when(client.getScene("test-scene-id")).thenThrow(Client.NotFound.class);
+    public void getScene__GracefullyHandlesSceneNotFound() throws Exception {
+        when(client.getScene("test-scene-id"))
+                .thenThrow(Client.NotFound.class);
 
-        ResponseEntity response = createController().getScene("test-scene-id");
-
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        mvc.perform(get("/scenes/test-scene-id"))
+                .andExpect(status().is(404))
+                .andExpect(jsonPath("error", equalTo("Scene 'test-scene-id' not found")));
     }
 
     @Test
-    public void getScene_gracefullyHandlesRetrievalFailure() throws Client.Error {
-        when(client.getScene("test-scene-id")).thenThrow(Client.Error.class);
+    public void getScene__GracefullyHandlesRetrievalFailure() throws Exception {
+        when(client.getScene("test-scene-id"))
+                .thenThrow(new Client.Error("test-error"));
 
-        ResponseEntity response = createController().getScene("test-scene-id");
-
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        mvc.perform(get("/scenes/test-scene-id"))
+                .andExpect(status().is(500))
+                .andExpect(jsonPath("error", equalTo("Scene fetch error: test-error")));
     }
 
 
     @Test
-    public void tiles_requestsCorrectSceneId() throws Client.Error {
+    public void tiles__RequestsCorrectSceneId() throws Exception {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        createController().tiles("test-scene-id", 123, 456, 789);
+        mvc.perform(get("/tiles/test-scene-id/789/123/456.png"));
 
         verify(client).fetchTile(eq("test-scene-id"), anyInt(), anyInt(), anyInt());
     }
 
     @Test
-    public void tiles_requestsCorrectX() throws Client.Error {
+    public void tiles__RequestsCorrectX() throws Exception {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        createController().tiles("test-scene-id", 123, 456, 789);
+        mvc.perform(get("/tiles/test-scene-id/789/123/456.png"));
 
         verify(client).fetchTile(anyString(), eq(123), anyInt(), anyInt());
     }
 
     @Test
-    public void tiles_requestsCorrectY() throws Client.Error {
+    public void tiles__RequestsCorrectY() throws Exception {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        createController().tiles("test-scene-id", 123, 456, 789);
+        mvc.perform(get("/tiles/test-scene-id/789/123/456.png"));
 
         verify(client).fetchTile(anyString(), anyInt(), eq(456), anyInt());
     }
 
     @Test
-    public void tiles_requestsCorrectZ() throws Client.Error {
+    public void tiles__RequestsCorrectZ() throws Exception {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        createController().tiles("test-scene-id", 123, 456, 789);
+        mvc.perform(get("/tiles/test-scene-id/789/123/456.png"));
 
         verify(client).fetchTile(anyString(), anyInt(), anyInt(), eq(789));
     }
 
     @Test
-    public void tiles_gracefullyHandlesProxyError() throws Client.Error {
-        when(servletContext.getResourceAsStream(anyString()))
-                .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
+    public void tiles__GracefullyHandlesProxyError() throws Exception {
         when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
                 .thenThrow(Client.Error.class);
+        when(servletContext.getResourceAsStream(anyString()))
+                .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        ResponseEntity<InputStreamResource> response = createController().tiles("test-scene-id", 123, 456, 789);
-
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        mvc.perform(get("/tiles/test-scene-id/123/456/789.png"))
+                .andExpect(status().is(500));
     }
 
     @Test
-    public void tiles_rendersPlaceholderOnError() throws Client.Error, IOException {
-        InputStream expectedStream = new ByteArrayInputStream("test-data".getBytes());
-        when(servletContext.getResourceAsStream(anyString())).thenReturn(expectedStream);
-        when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt())).thenThrow(Client.Error.class);
+    public void tiles__RendersPlaceholderOnError() throws Exception {
+        when(client.fetchTile(anyString(), anyInt(), anyInt(), anyInt()))
+                .thenThrow(Client.Error.class);
+        when(servletContext.getResourceAsStream(eq("/tile-error.png")))
+                .thenReturn(new ByteArrayInputStream("test-data".getBytes()));
 
-        ResponseEntity<InputStreamResource> response = createController().tiles("test-scene-id", 123, 456, 789);
-
-        assertSame(response.getBody().getInputStream(), expectedStream);
-        assertEquals(MediaType.IMAGE_PNG, response.getHeaders().getContentType());
-        verify(servletContext).getResourceAsStream(eq("/tile-error.png"));
-    }
-
-    private PlanetController createController() {
-        return new PlanetController(client, servletContext);
+        mvc.perform(get("/tiles/test-scene-id/123/456/789.png"))
+                .andExpect(content().contentType(MediaType.IMAGE_PNG))
+                .andExpect(content().bytes("test-data".getBytes()));
     }
 }
