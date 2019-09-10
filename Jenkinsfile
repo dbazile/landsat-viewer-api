@@ -3,7 +3,7 @@ library 'deployment'
 node {
     checkout scm
 
-    withDockerContainer(image: 'maven:3-jdk-10') {
+    withDockerContainer(image: 'maven:3-jdk-11') {
         stage('Test') {
             sh 'mvn -B test'
         }
