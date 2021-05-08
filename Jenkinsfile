@@ -1,4 +1,4 @@
-library 'deployment'
+library 'libcommon'
 
 node {
     checkout scm
@@ -11,7 +11,7 @@ node {
 
     stage('Deploy') {
         withCredentials([string(credentialsId: 'PLANET_API_KEY', variable: 'PLANET_API_KEY')]) {
-            deployApplication('landsat-viewer-api', [
+            libcommon.deploy('landsat-viewer-api', [
                     'PLANET_API_KEY': PLANET_API_KEY,
             ])
         }
